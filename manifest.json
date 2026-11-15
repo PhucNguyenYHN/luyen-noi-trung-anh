@@ -1,0 +1,14 @@
+{
+  "name": "Luyện nói Trung – Anh",
+  "short_name": "Trung – Anh",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#12171c",
+  "theme_color": "#c62828",
+  "lang": "vi",
+  "icons": [
+    { "src": "icon-192-zh2.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512-zh2.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
