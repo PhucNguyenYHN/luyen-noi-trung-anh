@@ -673,6 +673,8 @@
         <div class="tools" id="tools">
           <button id="prepBtn" class="hidden" title="Thời gian chuẩn bị IELTS Part 2">Chuẩn bị 1 phút</button>
           <button id="viewLessonBtn2" title="Mở tài liệu bài: từ vựng, ngữ pháp, bài khóa">📖 Xem bài học</button>
+          <button id="ideaBtn" title="Bí ý: nhờ giáo viên gợi ý vài ý và câu mở đầu">💡 Gợi ý ý tưởng</button>
+          <button id="topicBtn" title="Chuyển sang một góc chuyện mới, thú vị hơn">🔀 Đổi chủ đề</button>
           <button id="slowBtn" title="Nhờ nói lại câu vừa rồi, chậm hơn">Nói chậm lại</button>
           <button id="sylBtn" title="Nhờ đọc lại từng âm tiết, nói rõ pinyin và thanh điệu">Đọc từng âm tiết + thanh điệu</button>
           <button id="transBtn" title="Nhờ dịch câu vừa rồi sang tiếng Việt">Dịch câu vừa rồi</button>
@@ -1668,6 +1670,7 @@
     el.meterBar.style.width = (S.muted ? 0 : Math.min(100, Math.round(rms * 400))) + '%';
     mascot.style.setProperty('--l', S.muted ? 0 : Math.min(1, rms * 6).toFixed(2));
     S.micLevel = S.muted ? 0 : Math.min(1, rms * 6);
+    S.micLevelAvg = (S.micLevelAvg || 0) * 0.97 + S.micLevel * 0.03;
 
     if (S.muted || !S.ready || !S.ws || S.ws.readyState !== 1) return;
     if (S.holdMicUntil && Date.now() < S.holdMicUntil) return;
@@ -1753,6 +1756,9 @@
           el.log.appendChild(note);
         }
         sendText(S.kickoff);
+      } else if (S.backNote) {
+        S.backNote = false;
+        sendText('[I stepped away for a moment and I am back now. Remind me in one sentence where we were, then continue.]');
       }
       refreshStatus();
       return;
@@ -1785,6 +1791,7 @@
 
   function reconnect() {
     if (!S || S.ending) return;
+    if (document.hidden && S.started) { S.ready = false; return; } // máy đang khóa: đợi quay lại app rồi mới nối (onVisible)
     S.retries = (S.retries || 0) + 1;
     // Tra Google là tính năng thử nghiệm: nếu phiên không mở được khi có nó thì thử lại một lần không có.
     var dropSearch = !S.started && S.setup && S.setup.setup.tools;
@@ -1839,9 +1846,22 @@
     nudgeReply(true);
   }
 
+  // Giáo viên nói xong mà người học im lâu (bí ý): nhắc giáo viên chủ động dẫn dắt. Mỗi lượt của giáo viên chỉ nhắc một lần.
+  function idleLead() {
+    if (!S || !S.ready || S.playing.size || S.muted || S.prepLeft > 0 || !S.lastAiAt || document.hidden) return;
+    var now = Date.now(), quiet = S.kids ? 9000 : 13000;
+    if ((S.lastUserAt || 0) > S.lastAiAt || now - S.lastAiAt < quiet) return;
+    if ((S.leadAt || 0) >= S.lastAiAt) return;
+    if (S.micLevelAvg > 0.25) return; // vẫn đang có tiếng nói, chưa phải im lặng
+    S.leadAt = now;
+    sendText(S.kids ? '[The child has been quiet for a while. Start something new and fun now.]' :
+      '[I have been silent for a while after your last turn: I am probably stuck for ideas. Take the lead now with a fresh, easy prompt.]');
+  }
+
   function refreshStatus() {
     if (!S || S.ending) return;
     autoNudge();
+    idleLead();
     var t = Math.floor((Date.now() - S.startedAt) / 1000);
     var clock = Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2);
     var sub = S.modeLabel + ' · ' + clock;
@@ -1873,6 +1893,18 @@
 
   el.muteBtn.addEventListener('click', function () { if (S && !(S.prepLeft > 0)) setMuted(!S.muted); });
   el.reviewBtn.addEventListener('click', function () { sendText('review'); });
+  $('ideaBtn').addEventListener('click', function () {
+    sendText('I am stuck for ideas. Give me two or three quick ideas of what I could say about this, each with an easy sentence starter ' +
+      'in the language I am learning and a short Vietnamese hint, then ask me to pick one.');
+    if (S) S.leadAt = Date.now();
+    closeSettings();
+  });
+  $('topicBtn').addEventListener('click', function () {
+    sendText('This topic is getting dry. Switch to a fresh, fun angle or a new related topic: start with a short story, a surprising fact ' +
+      'or a "what would you do if" situation, then ask me one easy question.');
+    if (S) S.leadAt = Date.now();
+    closeSettings();
+  });
   $('slowBtn').addEventListener('click', function () {
     sendText('Please say your last sentences again, more slowly and clearly, then continue.');
   });
@@ -1973,8 +2005,9 @@
       el.mainBtn.disabled = false;
       el.mainBtn.classList.add('on');
       el.mainBtn.textContent = 'Kết thúc';
+      S.kids = !!info.kids;
       S.tick = setInterval(refreshStatus, 1000);
-      try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (w) { if (S) S.wake = w; }).catch(function () {}); } catch (e) {}
+      keepAwake();
       connect();
     }).catch(function (e) {
       var name = e && e.name;
@@ -1986,6 +2019,55 @@
       if (isAuthError(e)) { setStatus('', '', ''); forgetAuth(); showLock('Mật khẩu đã đổi, hãy nhập lại.'); }
     });
   }
+
+  // Giữ màn hình sáng suốt buổi học (iPhone/Android tự nhả khóa khi app bị ẩn, nên xin lại mỗi lần quay lại).
+  function keepAwake() {
+    if (!S || !navigator.wakeLock || document.hidden) return;
+    if (S.wake && !S.wake.released) return;
+    try { navigator.wakeLock.request('screen').then(function (w) { if (S) S.wake = w; else w.release(); }).catch(function () {}); } catch (e) {}
+  }
+
+  // Tắt màn hình / chuyển app: iPhone dừng micro và loa của trang web. Quay lại thì tự bật lại và nối tiếp đúng buổi.
+  function onHidden() {
+    if (!S || S.ending) return;
+    S.hiddenAt = Date.now();
+    try { stopPlayback(); } catch (e) {}
+  }
+  function onVisible() {
+    if (!S || S.ending || !S.hiddenAt) { keepAwake(); return; }
+    var away = Date.now() - S.hiddenAt;
+    S.hiddenAt = 0;
+    keepAwake();
+    try { if (S.outCtx && S.outCtx.state !== 'running') S.outCtx.resume(); } catch (e) {}
+    try { if (S.micCtx && S.micCtx.state !== 'running') S.micCtx.resume(); } catch (e) {}
+    S.nextTime = 0;
+    var track = S.stream && S.stream.getAudioTracks()[0];
+    var micDead = !track || track.readyState === 'ended' || track.muted;
+    var p = Promise.resolve();
+    if (micDead) {
+      p = navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 }
+      }).then(function (stream) {
+        if (!S) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+        try { S.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+        try { S.micCtx.close(); } catch (e) {}
+        S.stream = stream;
+        return startMic();
+      });
+    }
+    p.then(function () {
+      if (!S || S.ending) return;
+      var open = S.ws && S.ws.readyState === 1 && S.ready;
+      if (!open) { S.retries = 0; S.backNote = away > 20000; if (!S.ws || S.ws.readyState > 1) reconnect(); }
+      else if (away > 20000) sendText('[I stepped away for a moment and I am back now. Remind me in one sentence where we were, then continue.]');
+      refreshStatus();
+    }).catch(function (e) {
+      console.error(e);
+      setStatus('Micro chưa bật lại được', 'bad', 'Bấm "Kết thúc" để lưu buổi học rồi bắt đầu lại.');
+    });
+  }
+  document.addEventListener('visibilitychange', function () { if (document.hidden) onHidden(); else onVisible(); });
+  window.addEventListener('pageshow', function () { if (!document.hidden) onVisible(); });
 
   function cleanup() {
     if (!S) return;
