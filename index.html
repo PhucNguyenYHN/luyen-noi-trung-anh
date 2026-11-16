@@ -753,6 +753,13 @@
           <option value="major">Chỉ sửa lỗi lớn</option>
           <option value="end">Không sửa khi nói, xem ở tổng kết</option>
         </select>
+        <label for="pronSel">Mức chuẩn phát âm</label>
+        <select id="pronSel">
+          <option value="easy">Thoải mái: nghe hiểu được là đạt (khoảng 60% khớp)</option>
+          <option value="normal" selected>Vừa phải: rõ ràng, giọng Việt không sao (khoảng 75%)</option>
+          <option value="strict">Khắt khe: gần như người bản xứ (khoảng 90%)</option>
+        </select>
+        <div class="tip" id="pronTip">Quyết định khi nào một từ hoặc câu được tính là đạt và cho nói lại mấy lần. Giáo viên không đo được phần trăm thật, con số chỉ là mốc khắt khe. Lỗi ngữ pháp vẫn theo mục “Sửa lỗi” phía trên.</div>
         <label for="langSel">Ngôn ngữ giảng</label>
         <select id="langSel">
           <option value="vi_much" selected>Giảng tiếng Việt, luyện tiếng Trung</option>
@@ -1374,7 +1381,7 @@
       sel.value = x[2];
     });
     applyTargetUi();
-    ['langSel:lang', 'personaSel:persona', 'noiseSel:noisy', 'correctSel:correct', 'levelSel:level'].forEach(function (pair) {
+    ['langSel:lang', 'personaSel:persona', 'noiseSel:noisy', 'pronSel:pron', 'correctSel:correct', 'levelSel:level'].forEach(function (pair) {
       var p = pair.split(':'), sel = $(p[0]), key = p[1];
       try {
         var sv0 = LS.getItem(key);
@@ -2069,7 +2076,7 @@
 
     var req = { mode: el.mode.value, sub: el.subMode.value, topic: el.topic.value, auth: auth,
       voice: $('voiceSel').value, speed: $('speedSel').value,
-      correct: $('correctSel').value, lang: $('langSel').value, level: $('levelSel').value,
+      correct: $('correctSel').value, pron: $('pronSel').value, lang: $('langSel').value, level: $('levelSel').value,
       persona: $('personaSel').value, noisy: $('noiseSel').value, name: teacherName, mascot: mascotSel.value,
       lessonId: el.mode.value === 'path' ? $('lessonSel').value : '' };
     navigator.mediaDevices.getUserMedia({
@@ -2908,6 +2915,12 @@
     document.title = 'Luyện nói tiếng ' + (en ? 'Anh' : 'Trung');
     $('pinyinRow').classList.toggle('hidden', en);
     $('transLbl').textContent = 'Dịch nghĩa câu có tiếng ' + (en ? 'Anh' : 'Trung') + ' sang tiếng Việt';
+    var po = $('pronSel').options;
+    po[0].text = en ? 'Thoải mái: nghe hiểu được là đạt (khoảng 60% khớp)' : 'Thoải mái: nghe hiểu được là đạt, giọng Việt không sao (khoảng 60%)';
+    po[1].text = en ? 'Vừa phải: rõ ràng, giọng Việt không sao (khoảng 75%)' : 'Vừa phải: nhắc thanh điệu, âm khó khi gây khó hiểu (khoảng 75%)';
+    po[2].text = en ? 'Khắt khe: gần như người bản xứ (khoảng 90%)' : 'Khắt khe: đúng thanh điệu, biến điệu như người bản xứ (khoảng 90%)';
+    $('pronTip').textContent = 'Quyết định khi nào một từ hoặc câu được tính là đạt và cho nói lại mấy lần. Giáo viên không đo được phần trăm thật, con số chỉ là mốc khắt khe. ' +
+      (en ? 'Lỗi ngữ pháp vẫn theo mục “Sửa lỗi” phía trên.' : 'Lỗi từ và ngữ pháp vẫn theo mục “Sửa lỗi” phía trên; thanh điệu sai làm đổi nghĩa thì mức nào cũng được nhắc.');
     $('sylBtn').textContent = en ? 'Đọc chậm từng từ + trọng âm' : 'Đọc từng âm tiết + thanh điệu';
     el.topic.placeholder = en ? 'Ví dụ: hỏi người bệnh về dị ứng, giải thích chụp mạch vành…' : 'Ví dụ: đếm số 1–10, hỏi giá, 心电图…';
     $('lookQ').placeholder = 'Tra từ tiếng Việt sang tiếng ' + (en ? 'Anh' : 'Trung') + ', ví dụ: cường độ chịu nén';
