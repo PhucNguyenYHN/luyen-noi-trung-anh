@@ -324,6 +324,9 @@
   }
   .roundbtn.active { background: var(--warn); border-color: var(--warn); color: #fff; }
   .roundbtn.ghostspace { visibility: hidden; }
+  .roundbtn.ptt { box-shadow: 0 0 0 3px var(--accent, #6d4aff), 0 6px 18px rgba(109,74,255,.35); }
+  .roundbtn.ptt.active { background: #c93c4e; color: #fff; box-shadow: 0 0 0 3px #c93c4e, 0 6px 18px rgba(201,60,78,.4); }
+  #meter.gated i { opacity: .3; }
   #status { margin: 10px 0 0; font-size: 15px; }
   #sub { font-size: 12.5px; }
   .sheet .tools { justify-content: flex-start; }
@@ -673,6 +676,7 @@
         <div class="tools" id="tools">
           <button id="prepBtn" class="hidden" title="Thời gian chuẩn bị IELTS Part 2">Chuẩn bị 1 phút</button>
           <button id="viewLessonBtn2" title="Mở tài liệu bài: từ vựng, ngữ pháp, bài khóa">📖 Xem bài học</button>
+          <button id="calBtn" class="hidden" title="Đo độ to giọng của bạn để lọc tiếng người khác">🎚️ Đo giọng của tôi</button>
           <button id="ideaBtn" title="Bí ý: nhờ giáo viên gợi ý vài ý và câu mở đầu">💡 Gợi ý ý tưởng</button>
           <button id="topicBtn" title="Chuyển sang một góc chuyện mới, thú vị hơn">🔀 Đổi chủ đề</button>
           <button id="slowBtn" title="Nhờ nói lại câu vừa rồi, chậm hơn">Nói chậm lại</button>
@@ -722,6 +726,16 @@
           <option value="hsk6">Khoảng HSK 6</option>
         </select>
         <div id="posBox" class="tip hidden"></div>
+      </section>
+
+      <section id="noiseSec" class="setup-only">
+        <h3>Nhà ồn, nhiều người nói</h3>
+        <select id="noiseSel" aria-label="Chế độ nhà ồn">
+          <option value="off" selected>Tắt (nói tự do như bình thường)</option>
+          <option value="ptt">Bấm để nói: chỉ nghe khi tôi bấm 🎙️, chắc nhất</option>
+          <option value="gate">Lọc theo độ to: chỉ nhận giọng to như giọng tôi</option>
+        </select>
+        <div class="tip">Hai chế độ này cũng không cho tiếng bên ngoài cắt ngang lời giáo viên; muốn ngắt giáo viên thì chạm vào nhân vật. Dùng tai nghe có micro thì hiệu quả hơn nhiều. Chế độ lọc theo độ to cần bấm “Đo giọng của tôi” một lần trong buổi học (💬 Menu).</div>
       </section>
 
       <section id="teachSec" class="setup-only">
@@ -921,7 +935,8 @@
   }
   // Chạm vào nhân vật: nhảy nảy lên một cái.
   mascot.addEventListener('click', function () {
-    if (S) nudgeReply(false);
+    if (S && S.noisy && S.noisy !== 'off' && (S.playing.size || S.aiTurnOpen)) cutTeacher();
+    else if (S) nudgeReply(false);
     var m = mascot.querySelector('.m3d');
     if (!m) return;
     m.classList.remove('poke'); void m.offsetWidth; m.classList.add('poke');
@@ -1359,7 +1374,7 @@
       sel.value = x[2];
     });
     applyTargetUi();
-    ['langSel:lang', 'personaSel:persona', 'correctSel:correct', 'levelSel:level'].forEach(function (pair) {
+    ['langSel:lang', 'personaSel:persona', 'noiseSel:noisy', 'correctSel:correct', 'levelSel:level'].forEach(function (pair) {
       var p = pair.split(':'), sel = $(p[0]), key = p[1];
       try {
         var sv0 = LS.getItem(key);
@@ -1621,6 +1636,8 @@
   // ------------------------------------------------------------ âm thanh ra
 
   function playChunk(b64) {
+    S.aiTurnOpen = true;
+    if (S.dropAudio) return; // người học đã ngắt: bỏ nốt phần còn lại của lượt này
     var bin = atob(b64);
     var n = bin.length >> 1;
     var f32 = new Float32Array(n);
@@ -1645,6 +1662,13 @@
       if (!S.playing.size) refreshStatus();
     };
     refreshStatus();
+  }
+
+  function cutTeacher() {
+    if (!S || !S.playing.size && !S.aiTurnOpen) return;
+    stopPlayback();
+    if (S.aiTurnOpen) S.dropAudio = true;
+    closeBubbles('ai');
   }
 
   function stopPlayback() {
@@ -1672,8 +1696,17 @@
     S.micLevel = S.muted ? 0 : Math.min(1, rms * 6);
     S.micLevelAvg = (S.micLevelAvg || 0) * 0.97 + S.micLevel * 0.03;
 
+    if (S.calib) { S.calib.push(rms); return; } // đang đo giọng: chưa gửi gì lên
     if (S.muted || !S.ready || !S.ws || S.ws.readyState !== 1) return;
     if (S.holdMicUntil && Date.now() < S.holdMicUntil) return;
+    if (S.noisy === 'gate' && S.voiceRef) {
+      // Chỉ nhận tiếng to bằng giọng mình; giữ cổng mở thêm 0,5 giây để không cụt cuối câu.
+      var now0 = Date.now();
+      if (rms >= Math.max(0.012, S.voiceRef * 0.45)) S.gateUntil = now0 + 500;
+      var open = now0 < (S.gateUntil || 0);
+      el.meter.classList.toggle('gated', !open);
+      if (!open) f32 = new Float32Array(f32.length); // gửi im lặng để Gemini vẫn thấy dòng âm thanh liên tục
+    }
     var bytes = new Uint8Array(f32.length * 2);
     var view = new DataView(bytes.buffer);
     for (var j = 0; j < f32.length; j++) {
@@ -1711,6 +1744,14 @@
 
   // ------------------------------------------------------------ WebSocket tới Gemini Live
 
+  // Nhật ký kết nối: gửi kèm khi lưu buổi học (ghi cuối ô Bản ghi chữ) để tìm nguyên nhân rớt mạng.
+  function netLog(what) {
+    if (!S) return;
+    var t = Math.floor((Date.now() - S.startedAt) / 1000);
+    (S.net = S.net || []).push(Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2) + ' ' + what);
+    if (S.net.length > 60) S.net.shift();
+  }
+
   function sendText(text) {
     if (S && S.ready && S.ws && S.ws.readyState === 1) S.ws.send(JSON.stringify({ realtimeInput: { text: text } }));
   }
@@ -1738,6 +1779,7 @@
       if (!S || S.ws !== ws || S.ending) return;
       S.ready = false;
       S.lastClose = ev.code + (ev.reason ? ' ' + ev.reason : '');
+      netLog('đóng ' + S.lastClose + (navigator.onLine === false ? ' (mất mạng)' : '') + (document.hidden ? ' (app bị ẩn)' : ''));
       console.warn('WebSocket đóng:', S.lastClose);
       reconnect();
     };
@@ -1745,6 +1787,8 @@
 
   function handle(msg) {
     if (msg.setupComplete) {
+      S.aiTurnOpen = false; S.dropAudio = false;
+      if (S.started) netLog('nối lại xong sau ' + Math.round((Date.now() - (S.reconnAt || Date.now())) / 1000) + ' s');
       S.ready = true;
       S.retries = 0;
       if (!S.started) {
@@ -1767,12 +1811,24 @@
       var u = msg.sessionResumptionUpdate;
       if (u.resumable && u.newHandle) S.handle = u.newHandle;
     }
-    if (msg.goAway) { // server sắp đóng kết nối (~10 phút một lần): nối lại và tiếp tục cùng phiên
-      S.ready = false;
-      var old = S.ws;
-      S.ws = null;
-      try { old.close(); } catch (e) {}
-      reconnect();
+    if (msg.goAway) { // server sắp đóng kết nối (~10 phút một lần): lấy sẵn mã mới khi kết nối cũ còn chạy, rồi mới chuyển
+      if (S.goingAway) return;
+      S.goingAway = true;
+      netLog('goAway ' + JSON.stringify(msg.goAway.timeLeft || ''));
+      var awayWs = S.ws;
+      server('renewToken', { auth: auth }).then(function (t) {
+        if (!S) return;
+        S.token = t.token; S.tokenAt = Date.now(); S.tokenMinutes = t.tokenMinutes; S.freshToken = true;
+      }).catch(function (e) { console.error(e); }).then(function () {
+        if (!S || S.ending) return;
+        S.goingAway = false;
+        if (S.ws !== awayWs || awayWs.readyState > 1) return; // kết nối cũ đã tự đóng: onclose đã lo nối lại
+        S.ready = false;
+        var old = S.ws;
+        S.ws = null;
+        try { old.close(); } catch (e) {}
+        reconnect();
+      });
       return;
     }
     var sc = msg.serverContent;
@@ -1786,7 +1842,7 @@
         if (p.inlineData && p.inlineData.data && /^audio\//.test(p.inlineData.mimeType || 'audio/pcm')) playChunk(p.inlineData.data);
       });
     }
-    if (sc.turnComplete) closeBubbles();
+    if (sc.turnComplete) { S.aiTurnOpen = false; S.dropAudio = false; closeBubbles(); }
   }
 
   function reconnect() {
@@ -1807,22 +1863,27 @@
       setIdleButton();
       return;
     }
-    if (!dropSearch && S.retries > 4) {
+    if (!dropSearch && S.retries > 6) {
       stopPlayback();
       setStatus('Mất kết nối', 'bad', (S.started ? 'Bấm "Kết thúc" để lưu và xem tổng kết phần đã học.' :
         'Không mở được phiên Gemini Live' + (S.lastClose ? ' (' + S.lastClose + ')' : '') + '. Kiểm tra LIVE_MODEL trong sheet Config và hạn mức gói miễn phí.'));
       return;
     }
-    setStatus('Đang kết nối lại…', 'warn', '');
+    setStatus('Đang kết nối lại…', 'warn', S.lastClose ? 'Lý do: ' + S.lastClose : '');
     setMascot('think');
-    var tokenOld = Date.now() - S.tokenAt > (S.tokenMinutes - 2) * 60000;
-    var needToken = tokenOld || S.retries > 1 || !S.handle;
-    var wait = new Promise(function (r) { setTimeout(r, S.retries > 1 ? 1200 * S.retries : 100); });
+    // Mã tạm của Gemini chỉ mở được MỘT phiên và hết hạn mở phiên sau 2 phút, nên lần nối lại nào cũng cần mã mới
+    // (trừ khi vừa lấy sẵn lúc nhận goAway).
+    if (S.retries === 1) S.reconnAt = Date.now();
+    var needToken = !S.freshToken;
+    netLog('nối lại lần ' + S.retries + (needToken ? ', lấy mã mới' : ''));
+    S.freshToken = false;
+    var wait = new Promise(function (r) { setTimeout(r, S.retries > 1 ? 1000 * Math.min(S.retries, 5) : 50); });
     var p = needToken ? wait.then(function () { return server('renewToken', { auth: auth }); }).then(function (t) {
       S.token = t.token; S.tokenAt = Date.now(); S.tokenMinutes = t.tokenMinutes;
     }) : wait;
     p.then(function () { if (S && !S.ending) connect(); }).catch(function (e) {
       console.error(e);
+      netLog('lỗi lấy mã: ' + (e && e.message || e));
       if (S && !S.ending) reconnect();
     });
   }
@@ -1864,11 +1925,13 @@
     idleLead();
     var t = Math.floor((Date.now() - S.startedAt) / 1000);
     var clock = Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2);
-    var sub = S.modeLabel + ' · ' + clock;
+    var sub = S.modeLabel + ' · ' + clock + (S.noisy === 'gate' && !S.voiceRef ? ' · chưa đo giọng (💬 → Đo giọng của tôi)' : '') + (S.wakeFailed ? ' · ⚠ Máy có thể tự khóa màn hình làm ngắt buổi học: đặt Cài đặt › Màn hình › Tự động khóa = Không bao giờ' : '');
     if (!S.ready) return; // đang kết nối / nối lại: giữ nguyên dòng hiện có
     if (S.prepLeft > 0) { setStatus('Chuẩn bị: còn ' + S.prepLeft + ' giây', 'warn', sub); setMascot('think'); }
     else if (S.playing.size) { setStatus(teacherName + ' đang nói — có thể ngắt lời', 'speak', sub); setMascot('speak'); }
+    else if (S.muted && S.noisy === 'ptt') { setStatus('Bấm 🎙️ để nói', 'warn', sub); setMascot('idle'); }
     else if (S.muted) { setStatus('Micro đang tắt', 'warn', sub); setMascot('idle'); }
+    else if (S.noisy === 'ptt') { setStatus('Đang nghe… bấm ⏹️ khi nói xong', 'listen', sub); setMascot('listen'); }
     else if (S.nudgedAt && Date.now() - S.nudgedAt < 2500) { setMascot('think'); }
     else { setStatus('Đang nghe… (chạm nhân vật nếu chưa thấy trả lời)', 'listen', sub); setMascot('listen'); }
   }
@@ -1876,8 +1939,10 @@
   function setMuted(m) {
     S.muted = m;
     el.muteBtn.classList.toggle('active', m);
-    el.muteBtn.textContent = m ? '🔇' : '🎙️';
-    el.muteBtn.setAttribute('aria-label', m ? 'Bật micro' : 'Tắt micro');
+    var ptt = S.noisy === 'ptt';
+    el.muteBtn.textContent = ptt ? (m ? '🎙️' : '⏹️') : (m ? '🔇' : '🎙️');
+    el.muteBtn.classList.toggle('ptt', ptt);
+    el.muteBtn.setAttribute('aria-label', ptt ? (m ? 'Bấm để nói' : 'Bấm khi nói xong') : (m ? 'Bật micro' : 'Tắt micro'));
     if (m && S.ready && S.ws && S.ws.readyState === 1) S.ws.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
     refreshStatus();
   }
@@ -1891,7 +1956,32 @@
     if (announce) sendText('My preparation time is over. I am ready to give my Part 2 talk now.');
   }
 
-  el.muteBtn.addEventListener('click', function () { if (S && !(S.prepLeft > 0)) setMuted(!S.muted); });
+  el.muteBtn.addEventListener('click', function () {
+    if (!S || S.prepLeft > 0) return;
+    if (S.noisy === 'ptt' && S.muted) cutTeacher(); // bấm để nói: dừng giáo viên ngay nếu đang nói
+    setMuted(!S.muted);
+  });
+
+  // Đo độ to giọng của mình (4 giây) để chế độ "lọc theo độ to" biết ngưỡng.
+  $('calBtn').addEventListener('click', function () {
+    if (!S || S.calib) return;
+    if (S.playing.size) { setStatus('Đợi ' + teacherName + ' nói xong rồi đo nhé', 'warn'); return; }
+    closeSettings();
+    S.calib = [];
+    setStatus('Hãy nói bình thường trong 4 giây…', 'warn', 'Ví dụ: đọc to một câu bất kỳ bằng giọng nói chuyện bình thường của bạn.');
+    setTimeout(function () {
+      if (!S) return;
+      var a = S.calib.slice().sort(function (x, y) { return x - y; });
+      S.calib = null;
+      var floor = a.length ? a[Math.floor(a.length * 0.2)] : 0;
+      var voice = a.filter(function (v) { return v > Math.max(0.01, floor * 2.5); });
+      if (voice.length < 6) { setStatus('Chưa nghe thấy giọng', 'bad', 'Bấm “Đo giọng của tôi” lại và nói to rõ hơn.'); return; }
+      voice.sort(function (x, y) { return x - y; });
+      S.voiceRef = voice[Math.floor(voice.length / 2)];
+      try { LS.setItem('voiceRef', String(S.voiceRef)); } catch (e) {}
+      setStatus('Đã đo xong giọng của bạn', 'listen', 'Giờ chỉ tiếng to bằng giọng này mới được nhận.');
+    }, 4000);
+  });
   el.reviewBtn.addEventListener('click', function () { sendText('review'); });
   $('ideaBtn').addEventListener('click', function () {
     sendText('I am stuck for ideas. Give me two or three quick ideas of what I could say about this, each with an easy sentence starter ' +
@@ -1980,7 +2070,7 @@
     var req = { mode: el.mode.value, sub: el.subMode.value, topic: el.topic.value, auth: auth,
       voice: $('voiceSel').value, speed: $('speedSel').value,
       correct: $('correctSel').value, lang: $('langSel').value, level: $('levelSel').value,
-      persona: $('personaSel').value, name: teacherName, mascot: mascotSel.value,
+      persona: $('personaSel').value, noisy: $('noiseSel').value, name: teacherName, mascot: mascotSel.value,
       lessonId: el.mode.value === 'path' ? $('lessonSel').value : '' };
     navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 }
@@ -2006,6 +2096,13 @@
       el.mainBtn.classList.add('on');
       el.mainBtn.textContent = 'Kết thúc';
       S.kids = !!info.kids;
+      S.noisy = req.noisy || 'off';
+      S.voiceRef = 0;
+      try { S.voiceRef = parseFloat(LS.getItem('voiceRef')) || 0; } catch (e) {}
+      $('calBtn').classList.toggle('hidden', S.noisy !== 'gate');
+      if (S.noisy === 'ptt') setMuted(true);
+      else if (S.noisy === 'gate' && !S.voiceRef) setStatus('Chưa đo giọng', 'warn', 'Bấm 💬 → “Đo giọng của tôi” để bật chế độ lọc.');
+      else if (S.noisy === 'off') setMuted(false);
       S.tick = setInterval(refreshStatus, 1000);
       keepAwake();
       connect();
@@ -2022,15 +2119,20 @@
 
   // Giữ màn hình sáng suốt buổi học (iPhone/Android tự nhả khóa khi app bị ẩn, nên xin lại mỗi lần quay lại).
   function keepAwake() {
-    if (!S || !navigator.wakeLock || document.hidden) return;
+    if (!S || document.hidden) return;
+    if (!navigator.wakeLock) { S.wakeFailed = true; return; }
     if (S.wake && !S.wake.released) return;
-    try { navigator.wakeLock.request('screen').then(function (w) { if (S) S.wake = w; else w.release(); }).catch(function () {}); } catch (e) {}
+    try {
+      navigator.wakeLock.request('screen').then(function (w) { if (S) { S.wake = w; S.wakeFailed = false; } else w.release(); })
+        .catch(function () { if (S) S.wakeFailed = true; });
+    } catch (e) { S.wakeFailed = true; }
   }
 
   // Tắt màn hình / chuyển app: iPhone dừng micro và loa của trang web. Quay lại thì tự bật lại và nối tiếp đúng buổi.
   function onHidden() {
     if (!S || S.ending) return;
     S.hiddenAt = Date.now();
+    netLog('app bị ẩn / khóa màn hình');
     try { stopPlayback(); } catch (e) {}
   }
   function onVisible() {
@@ -2043,6 +2145,7 @@
     S.nextTime = 0;
     var track = S.stream && S.stream.getAudioTracks()[0];
     var micDead = !track || track.readyState === 'ended' || track.muted;
+    netLog('mở lại sau ' + Math.round(away / 1000) + ' s' + (micDead ? ', bật lại micro' : '') + ', kết nối ' + (S.ws ? S.ws.readyState : 'không có'));
     var p = Promise.resolve();
     if (micDead) {
       p = navigator.mediaDevices.getUserMedia({
@@ -2084,7 +2187,7 @@
     S = null;
     document.body.classList.remove('in-session');
     ['muteBtn', 'toolsBtn'].forEach(function (id) { $(id).classList.add('ghostspace'); });
-    el.muteBtn.classList.remove('active'); el.muteBtn.textContent = '🎙️';
+    el.muteBtn.classList.remove('active', 'ptt'); el.muteBtn.textContent = '🎙️'; el.meter.classList.remove('gated'); $('calBtn').classList.add('hidden');
     idleCaption('Bấm nút để bắt đầu nói chuyện');
     $('bars').classList.add('hidden');
     showLevel(0, 'listen');
@@ -2098,7 +2201,8 @@
       lessonId: S.lessonId || '',
       topic: el.topic.value,
       durationSec: Math.round((Date.now() - S.startedAt) / 1000),
-      transcript: S.items.map(function (it) { return { role: it.role, text: it.text }; })
+      transcript: S.items.map(function (it) { return { role: it.role, text: it.text }; }),
+      netLog: S.net || []
     };
     cleanup();
     el.mainBtn.disabled = true;
