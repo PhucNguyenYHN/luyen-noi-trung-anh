@@ -584,6 +584,21 @@
   .wk button { flex: none; border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 6px 10px; font: inherit; font-size: 0.82rem; cursor: pointer; color: var(--brand); font-weight: 700; }
   .unitres { background: var(--brand-soft); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; }
   .unitres b { color: var(--brand); }
+  /* Cài đặt: từng nhóm là một thẻ có tiêu đề nổi bật */
+  .sheet-body { background: var(--bg, var(--card-2)); max-width: 680px; }
+  .sheet-head { background: var(--bg, var(--card-2)); padding: 16px 0 12px; }
+  .sheet-head h2 { font-size: 1.45rem; font-weight: 800; letter-spacing: -.01em; }
+  .sheet-head h2 small { display: block; font-size: 0.78rem; font-weight: 500; color: var(--muted); letter-spacing: 0; margin-top: 2px; }
+  .sheet section { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px 14px; margin: 12px 0; box-shadow: var(--shadow); }
+  .sheet section:last-child { border: 1px solid var(--line); }
+  .sheet h3 { display: flex; align-items: center; gap: 12px; text-transform: none; letter-spacing: 0; font-size: 1.12rem; font-weight: 800; color: var(--ink); margin: 0 0 6px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  .sheet h3 .si { flex: none; width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; font-size: 1.2rem; background: color-mix(in srgb, var(--sc, var(--brand)) 14%, var(--card)); }
+  .sheet h3 .st small { display: block; font-size: 0.8rem; font-weight: 500; color: var(--muted); margin-top: 1px; }
+  .sheet label { font-size: 0.92rem; font-weight: 700; color: var(--ink); margin: 14px 0 5px; }
+  .sheet label.check { font-weight: 600; }
+  .sheet select, .sheet input[type=text], .sheet input[type=number] { font-size: 1rem; padding: 11px 12px; }
+  .sheet .sub { margin: 18px 0 0; padding: 6px 10px; border-radius: 8px; background: var(--card-2); font-size: 0.74rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+  .sheet .tip { font-size: 0.82rem; line-height: 1.45; }
 </style>
 </head>
 <body>
@@ -596,7 +611,7 @@
         <button type="button" data-t="zh">中文</button>
         <button type="button" data-t="en">English</button>
       </div>
-      <button id="gearBtn" class="iconbtn" aria-label="Mở menu">☰ Menu</button>
+      <button id="gearBtn" class="iconbtn" aria-label="Mở cài đặt">⚙️ Cài đặt</button>
     </div>
   </div>
   <div class="tabs" id="tabs" role="tablist">
@@ -694,12 +709,12 @@
   <div id="settings" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="setTitle">
     <div class="sheet-body">
       <div class="sheet-head">
-        <h2 id="setTitle">Menu</h2>
+        <h2 id="setTitle">Cài đặt<small>Chỉnh cách giáo viên dạy, giọng nói, phụ đề và giao diện</small></h2>
         <button id="setDone" class="done">Xong</button>
       </div>
 
       <section class="insession-only">
-        <h3>Trong buổi học</h3>
+        <h3 style="--sc:#2563eb"><span class="si">🎛️</span><span class="st">Trong buổi học<small>Công cụ dùng ngay khi đang nói</small></span></h3>
         <div class="tools" id="tools">
           <button id="prepBtn" class="hidden" title="Thời gian chuẩn bị IELTS Part 2">Chuẩn bị 1 phút</button>
           <button id="viewLessonBtn2" title="Mở tài liệu bài: từ vựng, ngữ pháp, bài khóa">📖 Xem bài học</button>
@@ -716,7 +731,7 @@
       </section>
 
       <section id="logSec" class="hidden">
-        <h3>Hội thoại</h3>
+        <h3 style="--sc:#0d9488"><span class="si">💬</span><span class="st">Hội thoại<small>Xem lại những gì vừa nói</small></span></h3>
         <details class="logbox" id="logBox">
           <summary id="logSum">Xem toàn bộ hội thoại</summary>
           <div id="log"></div>
@@ -724,12 +739,12 @@
       </section>
 
       <section id="progressSec" class="setup-only hidden">
-        <h3>Tiến độ</h3>
+        <h3 style="--sc:#16a34a"><span class="si">📈</span><span class="st">Tiến độ<small>Số buổi, phút học, chuỗi ngày</small></span></h3>
         <div id="stats" class="stats"></div>
       </section>
 
       <section class="setup-only">
-        <h3>Bài học</h3>
+        <h3 style="--sc:#2563eb"><span class="si">📘</span><span class="st">Bài học<small>Học gì hôm nay, trình độ hiện tại</small></span></h3>
         <label for="mode">Chế độ</label>
         <select id="mode"></select>
         <label for="subMode" id="subLabel">Nội dung</label>
@@ -755,25 +770,17 @@
         <div id="posBox" class="tip hidden"></div>
       </section>
 
-      <section id="noiseSec" class="setup-only">
-        <h3>Nhà ồn, nhiều người nói</h3>
-        <select id="noiseSel" aria-label="Chế độ nhà ồn">
-          <option value="off" selected>Tắt (nói tự do như bình thường)</option>
-          <option value="ptt">Bấm để nói: chỉ nghe khi tôi bấm 🎙️, chắc nhất</option>
-          <option value="gate">Lọc theo độ to: chỉ nhận giọng to như giọng tôi</option>
-        </select>
-        <div class="tip">Hai chế độ này cũng không cho tiếng bên ngoài cắt ngang lời giáo viên; muốn ngắt giáo viên thì chạm vào nhân vật. Dùng tai nghe có micro thì hiệu quả hơn nhiều. Chế độ lọc theo độ to cần bấm “Đo giọng của tôi” một lần trong buổi học (💬 Menu).</div>
-      </section>
-
       <section id="teachSec" class="setup-only">
-        <h3>Cách giáo viên dạy</h3>
-        <label for="personaSel">Tính cách</label>
+        <h3 style="--sc:#7c3aed"><span class="si">🧑‍🏫</span><span class="st">Cách giáo viên dạy<small>Tính cách, mức sửa lỗi, ngôn ngữ giảng</small></span></h3>
+        <div class="sub">Tính cách</div>
+        <label for="personaSel">Cách xưng hô và giọng điệu</label>
         <select id="personaSel">
           <option value="kind" selected>Hiền, tận tình (xưng mình – bạn)</option>
           <option value="sister">Như chị gái dạy em (xưng chị – em)</option>
           <option value="sassy">Lầy lội, cà khịa, vui tính (xưng tao – mày)</option>
           <option value="strict">Nghiêm khắc (xưng cô – em)</option>
         </select>
+        <div class="sub">Sửa lỗi và phát âm</div>
         <label for="correctSel">Sửa lỗi</label>
         <select id="correctSel">
           <option value="now" selected>Tận tình: bắt từng lỗi thanh điệu, phát âm, giải thích và cho nói lại</option>
@@ -787,7 +794,8 @@
           <option value="strict">Khắt khe: gần như người bản xứ (khoảng 90%)</option>
         </select>
         <div class="tip" id="pronTip">Quyết định khi nào một từ hoặc câu được tính là đạt và cho nói lại mấy lần. Giáo viên không đo được phần trăm thật, con số chỉ là mốc khắt khe. Lỗi ngữ pháp vẫn theo mục “Sửa lỗi” phía trên.</div>
-        <label for="langSel">Ngôn ngữ giảng</label>
+        <div class="sub">Ngôn ngữ</div>
+        <label for="langSel">Ngôn ngữ giáo viên dùng để giảng</label>
         <select id="langSel">
           <option value="vi_much" selected>Giảng tiếng Việt, luyện tiếng Trung</option>
           <option value="vi_some">Chủ yếu tiếng Trung, giải thích tiếng Việt khi khó</option>
@@ -796,7 +804,7 @@
       </section>
 
       <section class="setup-only">
-        <h3>Giọng nói</h3>
+        <h3 style="--sc:#ea580c"><span class="si">🔊</span><span class="st">Giọng nói<small>Giọng và tốc độ của giáo viên</small></span></h3>
         <label for="voiceSel">Giọng</label>
         <select id="voiceSel"></select>
         <label for="speedSel">Tốc độ</label>
@@ -807,8 +815,18 @@
         </select>
       </section>
 
+      <section id="noiseSec" class="setup-only">
+        <h3 style="--sc:#64748b"><span class="si">🔇</span><span class="st">Nhà ồn, nhiều người nói<small>Không để tiếng bên ngoài cắt ngang</small></span></h3>
+        <select id="noiseSel" aria-label="Chế độ nhà ồn">
+          <option value="off" selected>Tắt (nói tự do như bình thường)</option>
+          <option value="ptt">Bấm để nói: chỉ nghe khi tôi bấm 🎙️, chắc nhất</option>
+          <option value="gate">Lọc theo độ to: chỉ nhận giọng to như giọng tôi</option>
+        </select>
+        <div class="tip">Hai chế độ này cũng không cho tiếng bên ngoài cắt ngang lời giáo viên; muốn ngắt giáo viên thì chạm vào nhân vật. Dùng tai nghe có micro thì hiệu quả hơn nhiều. Chế độ lọc theo độ to cần bấm “Đo giọng của tôi” một lần trong buổi học (💬 Cài đặt).</div>
+      </section>
+
       <section class="setup-only">
-        <h3>Nhân vật</h3>
+        <h3 style="--sc:#db2777"><span class="si">🐼</span><span class="st">Nhân vật<small>Hình, tên và ảnh riêng</small></span></h3>
         <label>Chọn nhân vật (chạm vào nhân vật trên màn hình chính để trêu nó)</label>
         <div id="mascotGrid" class="mgrid"></div>
         <select id="mascotSel" class="hidden" aria-hidden="true" tabindex="-1"></select>
@@ -823,19 +841,19 @@
       </section>
 
       <section class="setup-only">
-        <h3>Giao diện</h3>
+        <h3 style="--sc:#0891b2"><span class="si">🎨</span><span class="st">Giao diện<small>Sáng, tối hoặc theo máy</small></span></h3>
         <div class="seg" id="themeSeg"><button type="button" data-th="light">Sáng</button><button type="button" data-th="dark">Tối</button><button type="button" data-th="auto">Theo máy</button></div>
       </section>
 
       <section id="ccSec">
-        <h3>Phụ đề</h3>
+        <h3 style="--sc:#0d9488"><span class="si">🔤</span><span class="st">Phụ đề<small>Pinyin và nghĩa tiếng Việt dưới câu nói</small></span></h3>
         <label class="check" id="pinyinRow"><input type="checkbox" id="pinyinChk" checked> Hiện pinyin trên chữ Hán</label>
         <label class="check"><input type="checkbox" id="transChk" checked> <span id="transLbl">Dịch nghĩa câu có tiếng Trung sang tiếng Việt</span></label>
         <div class="tip">Phụ đề hiện trọn lượt nói gần nhất; vuốt trong ô phụ đề để xem phần trên. Nghĩa tiếng Việt hiện ngay sau khi câu nói xong. Toàn bộ hội thoại ở mục Hội thoại.</div>
       </section>
 
       <section id="recentCard" class="hidden">
-        <h3>Các buổi gần đây</h3>
+        <h3 style="--sc:#64748b"><span class="si">🕘</span><span class="st">Các buổi gần đây<small>Mở lại tổng kết cũ</small></span></h3>
         <div class="recent" id="recent"></div>
       </section>
 
@@ -853,7 +871,7 @@
   <button type="button" data-v="path"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg><span>Lộ trình</span></button>
   <button type="button" data-v="cards"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="13" height="15" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v13"/></svg><span>Thẻ từ</span></button>
   <button type="button" data-v="bank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H2Z"/><path d="M22 5h-7a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h8Z"/></svg><span>Kho từ</span></button>
-  <button type="button" data-v="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg><span>Menu</span></button>
+  <button type="button" data-v="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg><span>Cài đặt</span></button>
 </nav>
 
 <div id="lessonSheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="lsTitle">
@@ -1434,7 +1452,7 @@
     booting = false;
     el.mainBtn.disabled = false;
     el.mainBtn.textContent = 'Thử lại';
-    el.bootMsg.textContent = 'Không tải được cài đặt: ' + (e && e.message || e) + '. Bấm "Thử lại" hoặc ☰ Menu.';
+    el.bootMsg.textContent = 'Không tải được cài đặt: ' + (e && e.message || e) + '. Bấm "Thử lại" hoặc ⚙️ Cài đặt.';
   });
   }
   loadBoot();
