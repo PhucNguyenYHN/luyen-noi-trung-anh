@@ -602,6 +602,13 @@
   .sheet h3 .st { color: color-mix(in srgb, var(--sc, var(--brand)) 80%, var(--ink)); font-weight: 900; font-size: 1.18rem; }
   .sheet .sub { color: var(--brand); background: var(--brand-soft); font-weight: 900; }
   .sheet-head h2 { color: var(--brand); }
+  .sheet h3 { cursor: pointer; -webkit-user-select: none; user-select: none; }
+  .sheet h3::after { content: ''; flex: none; margin-left: auto; width: 10px; height: 10px; border-right: 2.5px solid var(--muted); border-bottom: 2.5px solid var(--muted); transform: rotate(45deg) translate(-2px, -2px); transition: transform .2s; }
+  .sheet section.fold h3 { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+  .sheet section.fold h3::after { transform: rotate(-45deg); }
+  .sheet section.fold > :not(h3) { display: none !important; }
+  .foldbar { display: flex; gap: 8px; margin: 2px 0 0; }
+  .foldbar button { flex: 1; padding: 9px 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--brand); font: inherit; font-weight: 800; font-size: 0.86rem; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -715,6 +722,7 @@
         <h2 id="setTitle">Cài đặt<small>Chỉnh cách giáo viên dạy, giọng nói, phụ đề và giao diện</small></h2>
         <button id="setDone" class="done">Xong</button>
       </div>
+      <div class="foldbar"><button type="button" id="foldAll">Thu gọn tất cả</button><button type="button" id="unfoldAll">Mở tất cả</button></div>
 
       <section class="insession-only">
         <h3 style="--sc:#2563eb"><span class="si">🎛️</span><span class="st">Trong buổi học<small>Công cụ dùng ngay khi đang nói</small></span></h3>
@@ -2378,6 +2386,25 @@
     b.addEventListener('click', function () { setView(b.dataset.v); });
   });
 
+  // Thu gọn / mở từng nhóm cài đặt, nhớ lựa chọn trên thiết bị này.
+  (function () {
+    var secs = Array.prototype.slice.call(document.querySelectorAll('#settings section')).filter(function (x) { return x.querySelector(':scope > h3'); });
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem('folds') || '{}') || {}; } catch (e) {}
+    function keyOf(sec) { var t = sec.querySelector(':scope > h3 .st'); return t ? t.firstChild.textContent.trim() : ''; }
+    function persist() {
+      var o = {}; secs.forEach(function (x) { o[keyOf(x)] = x.classList.contains('fold') ? 1 : 0; });
+      try { localStorage.setItem('folds', JSON.stringify(o)); } catch (e) {}
+    }
+    secs.forEach(function (sec) {
+      var k = keyOf(sec), def = (k !== 'Bài học' && k !== 'Trong buổi học');
+      if (k in saved ? saved[k] : def) sec.classList.add('fold');
+      sec.querySelector(':scope > h3').addEventListener('click', function () { sec.classList.toggle('fold'); persist(); });
+    });
+    $('foldAll').addEventListener('click', function () { secs.forEach(function (x) { x.classList.add('fold'); }); persist(); });
+    $('unfoldAll').addEventListener('click', function () { secs.forEach(function (x) { x.classList.remove('fold'); }); persist(); });
+  })();
+
   // Chủ đề Sáng / Tối / Theo máy
   function setTheme(t) {
     document.documentElement.dataset.theme = t;
@@ -3095,6 +3122,20 @@
   });
   window.addEventListener('beforeunload', function (ev) { if (S) { ev.preventDefault(); ev.returnValue = ''; } });
 })();
+
+  // Tự cập nhật: nếu trang trên máy chủ mới hơn bản đang giữ trong bộ nhớ, tải lại một lần.
+  (function () {
+    var BUILD = 't20261119a';
+    try {
+      fetch(location.pathname + '?chk=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (t) {
+        var m = /var BUILD = '([^']+)'/.exec(t);
+        if (m && m[1] !== BUILD && !document.body.classList.contains('in-session') && sessionStorage.getItem('reloaded') !== m[1]) {
+          sessionStorage.setItem('reloaded', m[1]);
+          location.replace(location.pathname + '?v=' + m[1]);
+        }
+      }).catch(function () {});
+    } catch (e) {}
+  })();
 </script>
 </body>
 </html>
